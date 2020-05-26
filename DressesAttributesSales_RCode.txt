@@ -1,0 +1,411 @@
+RNGkind(sample.kind = "Rounding")
+library(rpart)
+library(party)
+library(readxl)
+library(rpart.plot)
+library(tree)
+library(ipred)
+library(rpart)
+library(MASS)
+library(TH.data)
+library(readxl)
+library(caret)
+#Reading Dataset
+dress = read_excel("Downloads/Dresses_Attribute_Sales/Attribute DataSet.xlsx")
+str(dress)
+dress$Style = as.factor(dress$Style)
+dress$Price = as.factor(dress$Price)
+dress$Rating = as.factor(dress$Rating)
+dress$Size= as.factor(dress$Size)
+dress$Season=as.factor(dress$Season)
+dress$NeckLine=as.factor(dress$NeckLine)
+dress$SleeveLength = as.factor(dress$SleeveLength)
+dress$waiseline = as.factor(dress$waiseline)
+dress$Material = as.factor(dress$Material)
+dress$FabricType = as.factor(dress$FabricType)
+dress$Decoration = as.factor(dress$Decoration)
+dress$PatternType = as.factor(dress$PatternType)
+dress$Recommendation =as.factor(dress$Recommendation)
+str(dress)
+#Splitting into training and testing Data
+any(is.na(dress))
+dress =na.omit(dress)
+set.seed(1234)
+pd <- sample(2,nrow(dress), replace= TRUE, prob = c(0.8,0.2))
+train <- sample(1:nrow(dress), 300)
+str(train)
+test<- dress[-train,]
+str(train)
+str(test)
+
+
+
+
+
+#Training, form tree, train accuracy and train error
+tree<- tree(Recommendation~.,dress,subset=train)
+tree
+tree.train = predict(tree,dress,type =  'class')
+mean((tree.train)==dress$Recommendation)
+mean((tree.train)!=dress$Recommendation)
+
+#Test accuracy, Test error
+tree.predict = predict(tree,test,type ='class')
+mean((tree.predict)==test$Recommendation)
+mean((tree.predict)!=test$Recommendation)
+
+set.seed(12)
+split_model <- createDataPartition(y=dress$Recommendation,    # Split on survived
+                                   list = FALSE,      # Return indexes as a vector
+                                   p=0.75,            # 75% of data in the training set
+                                   times=1)           # Make 1 split
+
+training_set <- dress[split_model,]     # Get the new training set
+validation_set <- dress[-split_model,]  # Get the validation set
+
+nrow(training_set)/nrow(dress)      # Check proportion in each partition
+nrow(validation_set)/nrow(dress)
+rpart_tree = rpart(Recommendation~Style+Material,training_set,cp=0.001)
+rpart_tree
+tree.train = predict(rpart_tree,training_set,type =  'class')
+mean((tree.train)==training_set$Recommendation)
+mean((tree.train)!=training_set$Recommendation)
+#Test accuracy, Test error
+tree.predict = predict(rpart_tree,validation_set,type ='class')
+mean((tree.predict)==validation_set$Recommendation)
+mean((tree.predict)!=validation_set$Recommendation)
+
+
+rpart_tree = rpart(Recommendation~Style+Material+Decoration,training_set,cp=0.001)
+rpart_tree
+tree.train = predict(rpart_tree,training_set,type =  'class')
+mean((tree.train)==training_set$Recommendation)
+mean((tree.train)!=training_set$Recommendation)
+#Test accuracy, Test error
+tree.predict = predict(rpart_tree,validation_set,type ='class')
+mean((tree.predict)==validation_set$Recommendation)
+mean((tree.predict)!=validation_set$Recommendation)
+
+
+rpart_tree = rpart(Recommendation~Style+Material+Price+SleeveLength,training_set,cp=0.001)
+rpart_tree
+tree.train = predict(rpart_tree,training_set,type =  'class')
+mean((tree.train)==training_set$Recommendation)
+mean((tree.train)!=training_set$Recommendation)
+#Test accuracy, Test error
+tree.predict = predict(rpart_tree,validation_set,type ='class')
+mean((tree.predict)==validation_set$Recommendation)
+mean((tree.predict)!=validation_set$Recommendation)
+
+#gives better accuracy
+rpart_tree = rpart(Recommendation~Style+Material+Price+Decoration,training_set,cp=0.001)
+rpart_tree
+tree.train = predict(rpart_tree,training_set,type =  'class')
+mean((tree.train)==training_set$Recommendation)
+mean((tree.train)!=training_set$Recommendation)
+#Test accuracy, Test error
+tree.predict = predict(rpart_tree,validation_set,type ='class')
+mean((tree.predict)==validation_set$Recommendation)
+mean((tree.predict)!=validation_set$Recommendation)
+
+
+
+
+
+#Bagging technique
+str(dress)
+data = na.omit(dress)
+set.seed(223)
+indxTrain <- createDataPartition(y = dress$Recommendation,p = 0.75,list = FALSE)
+training <- dress[indxTrain,]
+testing <- dress[-indxTrain,]
+gbag <- bagging(Recommendation~., data = training, coob=TRUE)
+print(gbag)
+predict(gbag,training)
+mean(predict(gbag,training)==training$Recommendation)
+mean(predict(gbag,training)!=training$Recommendation)
+predict(gbag,testing)
+mean(predict(gbag,testing)==testing$Recommendation)
+mean(predict(gbag,testing)!=testing$Recommendation)
+
+gbag <- bagging(Recommendation~Style+Material+Price+Decoration+Rating+waiseline+PatternType+NeckLine+Season+FabricType, data = training, coob=TRUE)
+print(gbag)
+predict(gbag,training)
+mean(predict(gbag,training)==training$Recommendation)
+mean(predict(gbag,training)!=training$Recommendation)
+predict(gbag,testing)
+mean(predict(gbag,testing)==testing$Recommendation)
+mean(predict(gbag,testing)!=testing$Recommendation)
+
+
+#RandomForest
+library(randomForest)
+model1 <- randomForest(Recommendation~., data = training, importance = TRUE,na.action=na.exclude)
+model1
+importance(model1) 
+#Train,train accuracy, Train Error
+model1.train = predict(model1,training)
+print(model1.train)
+mean(model1.train==training$Recommendation)
+mean(model1.train!=training$Recommendation)
+#Test, Test accuracy, Test error
+model1.test = predict(model1, testing)
+print(model1.test)
+table(model1.test,testing$Recommendation)
+mean(model1.test==testing$Recommendation)
+mean(model1.test!=testing$Recommendation)
+
+
+#Boosting Technique
+library(gbm)
+library(caret)
+fitControl <- trainControl(method = "cv",number = 10) #5folds)
+set.seed(825)
+fit <- train(Recommendation~., data = training,
+             method = "gbm",
+             trControl = fitControl,
+             verbose = FALSE,
+             na.action = na.exclude)
+fit
+summary(fit)
+#Predict training,training accuracy,training error
+predict(fit,training)
+mean(predict(fit,training)==training$Recommendation)
+mean(predict(fit,training)!=training$Recommendation)
+#Test, Test accuracy, Test error
+predict(fit,testing)
+mean(predict(fit,testing)==testing$Recommendation)
+mean(predict(fit,testing)!=testing$Recommendation)
+
+
+#Naive Bayes 
+library(e1071)
+model = train(training[,-11],training$Recommendation,'nb',trControl=trainControl(method='cv',number=20))
+model
+#Predict training,training accuracy,training error
+model.train = predict(model,training[,-11])
+model.train
+mean(model.train==training$Recommendation)
+mean(model.train!=training$Recommendation)
+#Model Evaluation
+#Predict testing set
+#Test, Test accuracy, Test error
+Predict <- predict(model,newdata = testing)
+print(Predict)
+mean(Predict==testing$Recommendation)
+mean(Predict!=testing$Recommendation)
+
+
+
+#SVM Techniques
+library(rpart)
+library(party)
+library(readxl)
+library(rpart.plot)
+set.seed(1234)
+#Reading Dataset
+Attribute_DataSet <- read_excel("Downloads/Dresses_Attribute_Sales/Attribute DataSet.xlsx")
+str(Attribute_DataSet)
+Attribute_DataSet$Style = as.factor(Attribute_DataSet$Style)
+Attribute_DataSet$Price = as.factor(Attribute_DataSet$Price)
+Attribute_DataSet$Rating = as.factor(Attribute_DataSet$Rating)
+Attribute_DataSet$Size = as.factor(Attribute_DataSet$Size)
+Attribute_DataSet$Season = as.factor(Attribute_DataSet$Season)
+Attribute_DataSet$NeckLine = as.factor(Attribute_DataSet$NeckLine)
+Attribute_DataSet$SleeveLength= as.factor(Attribute_DataSet$SleeveLength)
+Attribute_DataSet$waiseline = as.factor(Attribute_DataSet$waiseline)
+Attribute_DataSet$Material = as.factor(Attribute_DataSet$Material)
+Attribute_DataSet$FabricType = as.factor(Attribute_DataSet$FabricType)
+Attribute_DataSet$Decoration = as.factor(Attribute_DataSet$Decoration)
+Attribute_DataSet$Rec = as.factor(Attribute_DataSet$Recommendation)
+Attribute_DataSet$PatternType = as.factor(Attribute_DataSet$PatternType)
+#Splitting into training and testing Data
+any(is.na(Attribute_DataSet))
+Attribute_DataSet =na.omit(Attribute_DataSet)
+set.seed(1234)
+pd <- sample(2,nrow(Attribute_DataSet), replace= TRUE, prob = c(0.8,0.2))
+train <- sample(1:nrow(Attribute_DataSet), 300)
+str(train)
+test<- Attribute_DataSet[-train,]
+library('caret')
+library(rpart)
+library(e1071)
+library(readxl)
+library(rpart)
+dress = Attribute_DataSet
+dress = na.omit(dress)
+dress$Recommendation = factor(dress$Recommendation)
+set.seed(100)
+intrain <- createDataPartition(dress$Recommendation, p=0.75, list = FALSE)
+training = dress[intrain,]
+testing = dress[-intrain,]
+anyNA(dress)
+
+#SVM Linear with deafult cost
+svm_Linear = svm(Recommendation~., data=training, kernel="linear")
+svm_Linear
+train_pred = predict(svm_Linear, newdata=training)
+train_pred
+mean(train_pred==training$Recommendation)
+mean(train_pred!=training$Recommendation)
+test_pred = predict(svm_Linear, newdata=testing)
+test_pred
+mean(test_pred==testing$Recommendation)
+mean(test_pred!=testing$Recommendation)
+
+
+#SVM Linear with different costs
+costs = seq(from=0.005, to=1,by=0.005)
+pseudor2 = double(length(costs))
+correctRate = 0
+misRate =0
+for (c in 1:length(costs)){
+  epsilon.svr = svm(Recommendation~., data=training, kernel="linear", cost =costs[c])
+  epsilon.svr
+  svm.pred <- predict(epsilon.svr, testing)
+  classificationTable=table(pred = (svm.pred), true = testing$Recommendation)
+  correctRate[c] = sum((svm.pred)==testing$Recommendation)/length(testing$Recommendation)
+  misRate[c]=1-correctRate[c]
+}
+
+plot(costs,misRate, type="l")
+print(max(correctRate))
+print(min(misRate))
+k=which.min(misRate)
+print(costs[k])
+
+#SVM Linear with cost=0.01
+svm_Linear = svm(Recommendation~., data=training, kernel="linear", cost =0.01)
+svm_Linear
+train_pred = predict(svm_Linear, newdata=training)
+train_pred
+mean(train_pred==training$Recommendation)
+mean(train_pred!=training$Recommendation)
+test_pred = predict(svm_Linear, newdata=testing)
+#test_pred
+mean(test_pred==testing$Recommendation)
+mean(test_pred!=testing$Recommendation)
+
+
+
+
+
+#SVM Radial with default gamma
+svm_Radial = svm(Recommendation~., data=training, kernel="radial", cost =0.01)
+svm_Radial
+train_pred = predict(svm_Radial, newdata=training)
+train_pred
+mean((train_pred)==training$Recommendation)
+mean((train_pred)!=training$Recommendation)
+test_pred = predict(svm_Radial, newdata=testing)
+#test_pred
+mean((test_pred)==testing$Recommendation)
+mean((test_pred)!=testing$Recommendation)
+
+
+#SVM Radial with different costs and different gammas
+costs = seq(from=0.005, to=1,by=0.005)
+gammas = seq(from=1, to=1.1, by=0.1)
+pseudor2 = double(length(costs))
+correctRate = 0
+misRate =0
+str((testing))
+for (c in 1:length(costs)){
+  for(g in 1:length(gammas)){
+    epsilon.svr = svm(Recommendation~., data=testing, kernel="radial", cost =costs[c], gamma = gammas[g])
+    epsilon.svr
+    svm.pred <- predict(epsilon.svr, testing)
+    classificationTable=table(pred = (svm.pred), true = testing$Recommendation)
+    correctRate[c] = sum((svm.pred)==testing$Recommendation)/length(testing$Recommendation)
+    misRate[c]=1-correctRate[c]
+  }
+  
+}
+print(max(correctRate))
+print(min(misRate))
+
+
+#SVM Radial with gamme=1 and cost=100
+svm_Radial = svm(Recommendation~., data=training, kernel="radial", cost =300,gamma=1)
+svm_Radial
+train_pred = predict(svm_Radial, newdata=training)
+train_pred
+mean((train_pred)==training$Recommendation)
+mean((train_pred)!=training$Recommendation)
+test_pred = predict(svm_Radial, newdata=testing)
+#test_pred
+mean((test_pred)==testing$Recommendation)
+mean((test_pred)!=testing$Recommendation)
+
+#SVM Radial with gamme=1 and cost=100
+svm_Radial = svm(Recommendation~., data=training, kernel="radial", cost =150,gamma=1)
+svm_Radial
+train_pred = predict(svm_Radial, newdata=training)
+train_pred
+mean((train_pred)==training$Recommendation)
+mean((train_pred)!=training$Recommendation)
+test_pred = predict(svm_Radial, newdata=testing)
+#test_pred
+mean((test_pred)==testing$Recommendation)
+mean((test_pred)!=testing$Recommendation)
+
+#SVM Polynomial with default gamma
+svm_Polynomial = svm(Recommendation~., data=training, kernel="polynomial", cost =0.01)
+svm_Polynomial
+train_pred = predict(svm_Polynomial, newdata=training)
+train_pred
+mean((train_pred)==training$Recommendation)
+mean((train_pred)!=training$Recommendation)
+test_pred = predict(svm_Linear, newdata=testing)
+#test_pred
+mean((test_pred)==testing$Recommendation)
+mean((test_pred)!=testing$Recommendation)
+Ts.table = table(Predict = test_pred, Truth = testing$Recommendation)
+(Ts.table[1,2]+Ts.table[2,1])/sum(Ts.table)
+
+#SVM Polynomial with different gammas and costs
+costs = seq(from=0.005, to=1,by=0.005)
+gammas = seq(from=1, to=1.1, by=0.1)
+pseudor2 = double(length(costs))
+correctRate = 0
+misRate =0
+str((testing))
+for (c in 1:length(costs)){
+  for(g in 1:length(gammas)){
+    epsilon.svr = svm(Recommendation~., data=training, kernel="polynomial", cost =costs[c], gamma = gammas[g])
+    epsilon.svr
+    svm.pred <- predict(epsilon.svr, testing)
+    classificationTable=table(pred = (svm.pred), true = testing$Recommendation)
+    correctRate[c] = sum((svm.pred)==testing$Recommendation)/length(testing$Recommendation)
+    misRate[c]=1-correctRate[c]
+  }
+  
+}
+print(costs)
+print(gammas)
+print(correctRate)
+print(misRate)
+print(max(correctRate))
+print(min(misRate))
+k=which.min(misRate)
+print(costs[k])
+print(gammas[k])
+
+#SVM Polynomial with cost=0.005 and gamma=1
+svm_Polynomial = svm(Recommendation~., data=training, kernel="polynomial", cost =0.005,gamma=1)
+svm_Polynomial
+train_pred = predict(svm_Polynomial, newdata=training)
+train_pred
+classificationTable=table(pred = (train_pred), true = training$Recommendation)
+trainingaccuracy= sum((train_pred)==training$Recommendation)/length(training$Recommendation)
+trainingerror=1-trainingaccuracy
+trainingaccuracy
+trainingerror
+test_pred = predict(svm_Polynomial, newdata=testing)
+#test_pred
+classificationTable=table(pred = (test_pred), true = testing$Recommendation)
+testingaccuracy= sum((test_pred)==testing$Recommendation)/length(testing$Recommendation)
+testingerror=1-testingaccuracy
+testingaccuracy
+testingerror
+
